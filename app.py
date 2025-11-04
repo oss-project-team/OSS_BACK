@@ -3,6 +3,7 @@ import jwt            # JWT 토큰 생성 관련
 import bcrypt         # 비밀번호 암호화 관련
 import datetime       # 토큰 만료 시간 설정 관련
 from functools import wraps  # 데코레이터 (로그인 체크용)
+import random
 
 # --- 서버 설정 ---
 
@@ -19,6 +20,7 @@ posts = []            # 분실/습득 게시글 목록
 messages = []         # 쪽지 목록
 keywords = []         # 키워드 알림 목록
 alerts = []           # 키워드 알림 발생 기록
+email_codes = {}  # 이메일 인증코드 저장용
 
 next_post_id = 1
 next_message_id = 1
@@ -56,17 +58,63 @@ def login_required(f):
 
     return wrapper
 
+
+# ------------------------------------------------
+# 🔵 1. 이메일 인증 (학교 이메일만 가능)
+# ------------------------------------------------
+@app.route('/api/v1/auth/send-code', methods=['POST'])
+def send_code():
+    """학교 이메일로 인증 코드 전송"""
+    data = request.json
+    email = data.get('email')
+
+    if not email or not email.endswith('@edu.hanbat.ac.kr'):
+        return jsonify({"error": "학교 이메일(@edu.hanbat.ac.kr)만 가입 가능합니다."}), 400
+
+    code = str(random.randint(100000, 999999))
+    email_codes[email] = code
+    print(f"[DEBUG] {email} 인증코드: {code}")
+    return jsonify({"message": "인증 코드가 전송되었습니다."}), 200
+
+
+@app.route('/api/v1/auth/verify-code', methods=['POST'])
+def verify_code():
+    """이메일 인증 코드 확인"""
+    data = request.json
+    email = data.get('email')
+    code = data.get('code')
+
+    if email_codes.get(email) == code:
+        del email_codes[email]
+        return jsonify({"message": "이메일 인증이 완료되었습니다."}), 200
+    else:
+        return jsonify({"error": "인증 코드가 올바르지 않습니다."}), 400
+
+
+# ------------------------------------------------
+# 🔵 2. 닉네임 중복 확인 API
+# ------------------------------------------------
+@app.route('/api/v1/auth/check-nickname', methods=['GET'])
+def check_nickname():
+    """닉네임 중복 여부 확인"""
+    nickname = request.args.get('nickname')
+    for user in users.values():
+        if user['nickname'] == nickname:
+            return jsonify({"available": False}), 200
+    return jsonify({"available": True}), 200
+
+
 # --- API 구현 ---
 
-# 1. 회원가입 API (Notion 표의 '회원가입')
+# 3. 회원가입 API (Notion 표의 '회원가입')
 # @app.route: "이 주소('/api/v1/auth/signup')로 요청이 오면,"
 # methods=['POST']: "POST 방식으로만 받겠다"는 뜻
 @app.route('/api/v1/auth/signup', methods=['POST'])
 def signup():
     # 프론트가 보낸 데이터를 받습니다.
     data = request.json
-    
     email = data.get('email')
+
     password = data.get('password')
     nickname = data.get('nickname') 
 
@@ -89,7 +137,7 @@ def signup():
     # 201: Created (성공적으로 생성됨)
     return jsonify({"message": "회원가입이 성공적으로 완료되었습니다."}), 201
 
-# 2. 로그인 API (Notion 표의 '로그인(JWT)')
+# 4. 로그인 API (Notion 표의 '로그인(JWT)')
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
     data = request.json
@@ -113,8 +161,14 @@ def login():
     else:
         # 401: Unauthorized (인증 실패)
         return jsonify({"error": "이메일 또는 비밀번호가 일치하지 않습니다."}), 401
+    
+@app.route('/api/v1/auth/logout', methods=['POST'])
+@login_required
+def logout():
+    """🔵 로그아웃 (프론트에서 JWT 삭제)"""
+    return jsonify({"message": "로그아웃 되었습니다."}), 200
 
-# 3. 게시판 (Post - CRUD + 상태 관리 + 검색/필터)
+# 5. 게시판 (Post - CRUD + 상태 관리 + 검색/필터)
 # ------------------------------------------------
 
 # 1) 게시글 작성 (Create)
@@ -287,7 +341,7 @@ def update_post_status(post_id):
     return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
 # ------------------------------------------------
-# 5. 1:1 쪽지 (Direct Message)
+# 7. 1:1 쪽지 (Direct Message)
 # ------------------------------------------------
 
 # 1) 쪽지 보내기
@@ -360,7 +414,7 @@ def message_detail(message_id):
 
 
 # ------------------------------------------------
-# 6. 키워드 알림 (Keyword Alert)
+# 8. 키워드 알림 (Keyword Alert)
 # ------------------------------------------------
 
 # 1) 키워드 등록
