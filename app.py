@@ -16,11 +16,12 @@ app.config['SECRET_KEY'] = 'rhwkddksskrpgowntpdy'
 # (임시) 데이터베이스 대신 파이썬 딕셔너리(변수)를 사용합니다.
 # (서버를 껐다 켜면 회원가입한 정보가 사라집니다.)
 users = {} 
-posts = []            # 분실/습득 게시글 목록
-messages = []         # 쪽지 목록
-keywords = []         # 키워드 알림 목록
-alerts = []           # 키워드 알림 발생 기록
-email_codes = {}  # 이메일 인증코드 저장용
+posts = []              # 분실/습득 게시글 목록
+messages = []           # 쪽지 목록
+keywords = []           # 키워드 알림 목록
+alerts = []             # 키워드 알림 발생 기록
+email_codes = {}        # 이메일 인증코드 저장용
+verified_emails = set() # 이메일 인증코드 통과확인용
 
 next_post_id = 1
 next_message_id = 1
@@ -60,7 +61,7 @@ def login_required(f):
 
 
 # ------------------------------------------------
-# 🔵 1. 이메일 인증 (학교 이메일만 가능)
+# 1. 이메일 인증 (학교 이메일만 가능)
 # ------------------------------------------------
 @app.route('/api/v1/auth/send-code', methods=['POST'])
 def send_code():
@@ -73,6 +74,7 @@ def send_code():
 
     code = str(random.randint(100000, 999999))
     email_codes[email] = code
+    # print(Debug) 부분은 실제로 메일인증이 아닌 테스트용
     print(f"[DEBUG] {email} 인증코드: {code}")
     return jsonify({"message": "인증 코드가 전송되었습니다."}), 200
 
@@ -86,13 +88,14 @@ def verify_code():
 
     if email_codes.get(email) == code:
         del email_codes[email]
+        verified_emails.add(email)  # 이메일 인증코드 통과확인
         return jsonify({"message": "이메일 인증이 완료되었습니다."}), 200
     else:
         return jsonify({"error": "인증 코드가 올바르지 않습니다."}), 400
 
 
 # ------------------------------------------------
-# 🔵 2. 닉네임 중복 확인 API
+# 2. 닉네임 중복 확인 API
 # ------------------------------------------------
 @app.route('/api/v1/auth/check-nickname', methods=['GET'])
 def check_nickname():
@@ -116,8 +119,11 @@ def signup():
     email = data.get('email')
 
     password = data.get('password')
-    nickname = data.get('nickname') 
-
+    nickname = data.get('nickname')
+    # 이메일 인증 통과확인용
+    if email not in verified_emails:
+        return jsonify({"error": "이메일 인증을 먼저 완료해주세요."}), 400
+    
     # (검증) 이미 가입된 이메일인지 확인
     if email in users:
         # 400: Bad Request (잘못된 요청)
@@ -132,6 +138,9 @@ def signup():
         'password': hashed_password 
     }
     
+    # 가입성공시, 통과확인용 증표 삭제
+    verified_emails.remove(email)
+
     print("회원가입 성공:", users) #백엔드 개발자가 보는 서버 로그
     
     # 201: Created (성공적으로 생성됨)
