@@ -6,11 +6,11 @@ import datetime       # 토큰 만료 시간 설정 관련
 
 # --- 서버 설정 ---
 
-# app이라는 이름의 Flask 서버를 생성합니다.
+# app이라는 이름의 Flask 서버를 생성
 app = Flask(__name__)
 
-# JWT 토큰을 만들 때 사용할 비밀키입니다. (아무도 모르게 보관해야 함)
-app.config['SECRET_KEY'] = 'YOUR_SUPER_SECRET_KEY' 
+# JWT 토큰을 만들 때 사용할 비밀키
+app.config['SECRET_KEY'] = 'rhwkddksskrpgowntpdy' 
 
 # (임시) 데이터베이스 대신 파이썬 딕셔너리(변수)를 사용합니다.
 # (서버를 껐다 켜면 회원가입한 정보가 사라집니다.)
@@ -44,7 +44,7 @@ def signup():
         'password': hashed_password 
     }
     
-    print("회원가입 성공:", users) # 님(백엔드 개발자)이 보는 서버 로그
+    print("회원가입 성공:", users) #백엔드 개발자가 보는 서버 로그
     
     # 201: Created (성공적으로 생성됨)
     return jsonify({"message": "회원가입이 성공적으로 완료되었습니다."}), 201
