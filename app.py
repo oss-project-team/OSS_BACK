@@ -5,6 +5,7 @@ import bcrypt         # 비밀번호 암호화 관련
 import datetime       # 토큰 만료 시간 설정 관련
 from functools import wraps  # 데코레이터 (로그인 체크용)
 import random
+from flask_cors import CORS
 
 # --- 서버 설정 ---
 
@@ -13,6 +14,9 @@ app = Flask(__name__)
 
 # JWT 토큰을 만들 때 사용할 비밀키
 app.config['SECRET_KEY'] = 'rhwkddksskrpgowntpdy' 
+
+#CORS 설정
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # (임시) 데이터베이스 대신 파이썬 딕셔너리(변수)를 사용합니다.
 # (서버를 껐다 켜면 회원가입한 정보가 사라집니다.)
