@@ -23,8 +23,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'rhwkddksskrpgowntpdy' 
 
 #CORS 설정
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
+# ---------------------------------
+# 모든 응답에 CORS 헤더 강제 추가 ← 이것이 핵심
+# ---------------------------------
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    return response
 # SMTP 환경변수 읽기 (Render 환경변수 사용 권장)
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
