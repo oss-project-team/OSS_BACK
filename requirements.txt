@@ -2,3 +2,4 @@ Flask
 pyjwt
 bcrypt
 gunicorn
+flask-cors
