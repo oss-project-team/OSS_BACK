@@ -73,7 +73,7 @@ next_alert_id = 1
 def send_email(to_email, code):
     try:
         email_data = {
-            "from": "CHAJABAT <osstest902@gmail.com>",   
+            "from": "CHAJABAT <onboarding@resend.dev>",",   
             "to": [to_email],
             "subject": "CHAJABAT 인증코드",
             "html": f"<h2>인증코드: {code}</h2>"
