@@ -263,7 +263,60 @@ def login():
         }), 200
         # 401: Unauthorized (인증 실패)
     return jsonify({"error": "이메일 또는 비밀번호가 일치하지 않습니다."}), 401
+
+# ------------------------------------------------
+# 추가 - 사용자 프로필 관리
+# ------------------------------------------------
+# 1) 프로필 조회
+@app.route('/api/v1/users/profile', methods=['GET'])
+@login_required
+def get_profile():
+    """현재 로그인한 사용자의 프로필 정보 조회"""
+    email = request.user_email
+    user = users.get(email)
     
+    if not user:
+        return jsonify({"error": "사용자를 찾을 수 없습니다."}), 404
+    
+    return jsonify({
+        "email": email,
+        "nickname": user.get('nickname', ''),
+        "profileImage": user.get('profileImage', '')
+    }), 200
+
+# 2) 프로필 수정
+@app.route('/api/v1/users/profile', methods=['PUT'])
+@login_required
+def update_profile():
+    """프로필 정보 수정 (닉네임, 프로필 이미지)"""
+    email = request.user_email
+    data = request.json
+    
+    if email not in users:
+        return jsonify({"error": "사용자를 찾을 수 없습니다."}), 404
+    
+    user = users[email]
+    
+    # 닉네임 수정
+    if 'nickname' in data:
+        new_nickname = data.get('nickname')
+        # 닉네임 중복 확인 (본인 제외)
+        for other_email, other_user in users.items():
+            if other_email != email and other_user.get('nickname') == new_nickname:
+                return jsonify({"error": "이미 사용 중인 닉네임입니다."}), 400
+        user['nickname'] = new_nickname
+    
+    # 프로필 이미지 수정
+    if 'profileImage' in data:
+        user['profileImage'] = data.get('profileImage')
+    
+    return jsonify({
+        "email": email,
+        "nickname": user.get('nickname', ''),
+        "profileImage": user.get('profileImage', '')
+    }), 200
+
+
 # (추가) 토큰 재발급
 @app.route('/api/v1/auth/refresh', methods=['POST'])
 def refresh_token():
@@ -354,6 +407,9 @@ def create_post():
     if not all([post_type, title, content, location]):
         return jsonify({"error": "type, title, content, location은 필수입니다."}), 400
 
+    # [추가]작성자 닉네임 가져오기
+    author_nickname = users.get(request.user_email, {}).get('nickname', '')
+    
     post = {
         "id": next_post_id,
         "type": post_type,
@@ -388,6 +444,23 @@ def create_post():
             next_alert_id += 1
 
     return jsonify(post), 201
+
+# 내 게시글 목록 조회 (추가됨)
+@app.route('/api/v1/posts/my', methods=['GET'])
+@login_required
+def get_my_posts():
+    """내가 작성한 게시글 목록 조회"""
+    email = request.user_email
+    my_posts = [p for p in posts if p.get('author_email') == email]
+    
+    # [추가]닉네임 추가 (없으면 업데이트)
+    for p in my_posts:
+        if 'author_nickname' not in p or not p.get('author_nickname'):
+            if email in users:
+                p['author_nickname'] = users[email].get('nickname', '')
+    
+    my_posts = sorted(my_posts, key=lambda p: p['created_at'], reverse=True)
+    return jsonify(my_posts), 200
 
 
 # 2) 게시글 목록 조회 (검색 + 필터 + 정렬 + 간단 페이지네이션)
@@ -448,6 +521,11 @@ def list_posts():
 def get_post(post_id):
     for p in posts:
         if p['id'] == post_id:
+            # [추가]닉네임이 없으면 최신 정보로 업데이트
+            if 'author_nickname' not in p or not p.get('author_nickname'):
+                author_email = p.get('author_email')
+                if author_email and author_email in users:
+                    p['author_nickname'] = users[author_email].get('nickname', '')
             return jsonify(p)
     return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
