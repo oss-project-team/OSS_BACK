@@ -9,6 +9,7 @@ from flask_cors import CORS
 
 #(추가) 이메일 전송용 모듈
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 
 
@@ -85,12 +86,12 @@ def send_email(to_email, code):
 
 
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(SMTP_EMAIL, SMTP_PASSWORD)
-        server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
-        server.quit()
-        print(f"[메일 발송 성공] {to_email} 로 인증코드 전송됨")
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
+
+        print(f"[메일 발송 성공] {to_email}")
     except Exception as e:
         print("[메일 발송 오류] ", e)
 
