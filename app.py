@@ -7,9 +7,10 @@ from functools import wraps  # 데코레이터 (로그인 체크용)
 import random
 from flask_cors import CORS
 
-#mailslurp 라이브러리 추가
-from mailslurp_client import Configuration, ApiClient, SendEmailOptions, EmailControllerApi
+#resend 라이브러리 추가
+import resend
 
+resend.api_key = os.getenv("RESEND_API_KEY")
 
 import os
 
@@ -74,22 +75,15 @@ next_alert_id = 1
 # ------------------------------------------------------
 def send_email(to_email, code):
     try:
-        with ApiClient(mail_config) as api_client:
-            email_api = EmailControllerApi(api_client)
+        email_data = {
+            "from": "CHAJABAT <osstest902@gmail.com>",   
+            "to": [to_email],
+            "subject": "CHAJABAT 인증코드",
+            "html": f"<h2>인증코드: {code}</h2>"
+        }
 
-            # 기본 제공 inbox 가져오기
-            inboxes = email_api.get_all_inboxes()
-            sender_id = inboxes.content[0].id  # 발신자 inbox
-
-            options = SendEmailOptions(
-                to=[to_email],
-                subject="CHAJABAT 인증코드",
-                body=f"<h2>인증코드: {code}</h2>",
-                is_html=True
-            )
-
-            email_api.send_email(sender_id, options)
-            print("메일 발송 성공!")
+        resend.Emails.send(email_data)
+        print("메일 발송 성공!")
 
     except Exception as e:
         print("메일 발송 실패:", e)
