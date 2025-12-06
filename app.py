@@ -7,8 +7,10 @@ from functools import wraps  # 데코레이터 (로그인 체크용)
 import random
 from flask_cors import CORS
 
-#Resend API 사용
-import resend 
+#mailslurp 라이브러리 추가
+from mailslurp_client import Configuration, ApiClient, SendEmailOptions, EmailControllerApi
+
+
 import os
 
 # --- 서버 설정 ---
@@ -44,10 +46,11 @@ def add_cors_headers(response):
     return response
 
 
-# Resend API KEY 적용
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-resend.api_key = RESEND_API_KEY
+# MailSlurp API Key 설정 
+MAILSLURP_API_KEY = os.getenv("MAILSLURP_API_KEY")
 
+mail_config = Configuration()
+mail_config.api_key["x-api-key"] = MAILSLURP_API_KEY
 
 # (임시) 데이터베이스 대신 파이썬 딕셔너리(변수)를 사용합니다.
 # (서버를 껐다 켜면 회원가입한 정보가 사라집니다.)
@@ -70,19 +73,24 @@ next_alert_id = 1
 # (추가) 실제 이메일 전송 기능 (Gmail SMTP)
 # ------------------------------------------------------
 def send_email(to_email, code):
-
-    if not RESEND_API_KEY:
-        print("RESEND_API_KEY 환경변수가 없음")
-        return
-
     try:
-        response = resend.Emails.send({
-            "from": "Chajabat <no-reply@YOUR_DOMAIN>",    
-            "to": to_email,
-            "subject": "CHAJABAT 인증코드",
-            "html": f"<p>인증코드는 다음과 같습니다:</p><h2>{code}</h2>"
-        })
-        print("메일 발송 성공:", response)
+        with ApiClient(mail_config) as api_client:
+            email_api = EmailControllerApi(api_client)
+
+            # 기본 제공 inbox 가져오기
+            inboxes = email_api.get_all_inboxes()
+            sender_id = inboxes.content[0].id  # 발신자 inbox
+
+            options = SendEmailOptions(
+                to=[to_email],
+                subject="CHAJABAT 인증코드",
+                body=f"<h2>인증코드: {code}</h2>",
+                is_html=True
+            )
+
+            email_api.send_email(sender_id, options)
+            print("메일 발송 성공!")
+
     except Exception as e:
         print("메일 발송 실패:", e)
 
