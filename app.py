@@ -523,15 +523,40 @@ def list_posts():
         "items": items
     })
 
+#(추가) 쪽지용
+@app.route('/api/v1/users/<email>/profile', methods=['GET'])
+@login_required
+def get_user_profile_by_email(email):
+    """이메일로 사용자 프로필 조회 (쪽지 기능용)"""
+    
+    #  이메일 URL 디코딩 (@ → %40 문제 해결)
+    email = email.replace('%40', '@')
+
+    if email in users:
+        user = users[email]
+        return jsonify({
+            "email": email,
+            "nickname": user.get('nickname', ''),
+            "profileImage": user.get('profileImage', '')
+        }), 200
+
+    return jsonify({"error": "사용자를 찾을 수 없습니다."}), 404
 
 # 3) 게시글 상세 조회
 @app.route('/api/v1/posts/<int:post_id>', methods=['GET'])
 def get_post(post_id):
     for p in posts:
         if p['id'] == post_id:
+            # 작성자 프로필 이미지 가져오기
+            author_email = p.get('author_email')
+            author_profile_image = ''
             # [추가]닉네임이 없으면 최신 정보로 업데이트
             if 'author_nickname' not in p or not p.get('author_nickname'):
                 author_email = p.get('author_email')
+
+                # 작성자 프로필 이미지 추가
+                p['author_profile_image'] = author_profile_image
+                # 기존 닉네임 업데이트
                 if author_email and author_email in users:
                     p['author_nickname'] = users[author_email].get('nickname', '')
             return jsonify(p)
