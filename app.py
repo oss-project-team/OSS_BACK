@@ -35,7 +35,7 @@ def handle_options():
         response = app.make_response('')
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         return response
 # ---------------------------------
 # 모든 응답에 CORS 헤더 강제 추가 ← 이것이 핵심
@@ -44,7 +44,7 @@ def handle_options():
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
     return response
 
 
@@ -221,7 +221,8 @@ def signup():
     # (임시 DB에 저장)
     users[email] = {
         'nickname': nickname,
-        'password': hashed_password 
+        'password': hashed_password,
+        'profileImage': "" 
     }
     
 
@@ -410,6 +411,7 @@ def create_post():
     if not all([post_type, title, content, location]):
         return jsonify({"error": "type, title, content, location은 필수입니다."}), 400
 
+    author_email = request.user_email
     # [추가]작성자 닉네임 가져오기
     author_nickname = users.get(request.user_email, {}).get('nickname', '')
     
@@ -434,11 +436,10 @@ def create_post():
     next_post_id += 1
 
     #  키워드 알림 체크 (간단 버전: 제목 + 내용 문자열에 keyword 포함 여부)
-    text = (title or "") + " " + (content or "")
+    text = f"{title} {content}"
     for kw in keywords:
         if kw["keyword"] in text:
-            # 글을 작성한 본인에게는 알림 안 보낸다고 가정
-            if kw["user_email"] == request.user_email:
+            if kw["user_email"] == author_email:
                 continue
             alerts.append({
                 "id": next_alert_id,
@@ -705,6 +706,28 @@ def list_keywords():
     email = request.user_email
     my_keywords = [k for k in keywords if k['user_email'] == email]
     return jsonify(my_keywords)
+
+# ------------------------------------------------------
+# (추가) 알림 조회 & 읽음 처리 API 
+# ------------------------------------------------------
+@app.route('/api/v1/alerts', methods=['GET'])
+@login_required
+def get_alerts():
+    email = request.user_email
+    my_alerts = [a for a in alerts if a['user_email'] == email]
+    my_alerts = sorted(my_alerts, key=lambda a: a['created_at'], reverse=True)
+    return jsonify(my_alerts), 200
+
+
+@app.route('/api/v1/alerts/<int:post_id>/read', methods=['PATCH'])
+@login_required
+def mark_alert_as_read(post_id):
+    email = request.user_email
+    for alert in alerts:
+        if alert['post_id'] == post_id and alert['user_email'] == email:
+            alert['seen'] = True
+            return jsonify(alert), 200
+    return jsonify({"error": "알림을 찾을 수 없습니다."}), 404
 
 
 # 3) 키워드 삭제
