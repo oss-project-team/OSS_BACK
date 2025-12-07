@@ -168,8 +168,6 @@ def reset_password():
     email = data.get('email')
     new_pw = data.get('new_password')
 
-    if email not in verified_emails:
-        return jsonify({"error": "이메일 인증이 필요합니다."}), 400
 
     if email not in users:
         return jsonify({"error": "등록되지 않은 이메일입니다."}), 404
@@ -177,7 +175,6 @@ def reset_password():
     hashed = bcrypt.hashpw(new_pw.encode('utf-8'), bcrypt.gensalt())
     users[email]['password'] = hashed
 
-    verified_emails.remove(email)
 
     return jsonify({"message": "비밀번호가 변경되었습니다."}), 200
 
@@ -212,9 +209,7 @@ def signup():
     if not all([email, password, nickname]):
         return jsonify({"error": "필수 정보를 모두 입력해주세요."}), 400
 
-    #이메일 인증 체크
-    if email not in verified_emails:
-        return jsonify({"error": "이메일 인증이 필요합니다."}), 400
+
     # (검증) 이미 가입된 이메일인지 확인
     if email in users:
         # 400: Bad Request (잘못된 요청)
@@ -229,7 +224,7 @@ def signup():
         'password': hashed_password 
     }
     
-    verified_emails.remove(email)
+
     
     # 201: Created (성공적으로 생성됨)
     return jsonify({"message": "회원가입이 성공적으로 완료되었습니다."}), 201
