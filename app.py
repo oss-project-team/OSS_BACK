@@ -551,14 +551,17 @@ def get_post(post_id):
             author_email = p.get('author_email')
             author_profile_image = ''
             # [추가]닉네임이 없으면 최신 정보로 업데이트
+            if author_email and author_email in users:
+                author_profile_image = users[author_email].get('profileImage', '')
+            
+            # 프로필 이미지를 응답에 추가
+            p['author_profile_image'] = author_profile_image
+            
+            # 닉네임 업데이트 (기존 코드)
             if 'author_nickname' not in p or not p.get('author_nickname'):
-                author_email = p.get('author_email')
-
-                # 작성자 프로필 이미지 추가
-                p['author_profile_image'] = author_profile_image
-                # 기존 닉네임 업데이트
                 if author_email and author_email in users:
                     p['author_nickname'] = users[author_email].get('nickname', '')
+            
             return jsonify(p)
     return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
